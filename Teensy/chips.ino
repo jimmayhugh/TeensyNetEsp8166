@@ -2,8 +2,8 @@
 
 TeensyNet chip functions
 
-Version 0.0.49
-Last Modified 04/04/2015
+Version 0.0.50
+Last Modified 04/20/2016
 By Jim Mayhugh
 
 
@@ -605,6 +605,16 @@ void updateChipStatus(int x)
   }else{
     delayMicroseconds(100);
   }
+}
+
+void resetChips(void)
+{
+  pinMode(oneWireAddress, OUTPUT);
+  digitalWrite(oneWireAddress, LOW);
+  delay(10000);
+  digitalWrite(oneWireAddress, HIGH);
+  delay(1000);
+  pinMode(oneWireAddress, INPUT);
 }
 
 

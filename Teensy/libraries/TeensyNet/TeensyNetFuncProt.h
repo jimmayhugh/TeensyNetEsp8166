@@ -37,6 +37,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // function prototypes
 
+void resetChips(void);
 void pidSetup(void);
 void readStructures(void);
 void saveStructures(void);

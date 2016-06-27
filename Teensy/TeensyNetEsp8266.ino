@@ -2,8 +2,8 @@
 
 TeensyNetEsp8266.ino
 
-Version 0.0.1
-Last Modified 04/08/2016
+Version 0.0.2
+Last Modified 04/20/2016
 By Jim Mayhugh
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -140,11 +140,18 @@ void setup()
   myDebug[debugPort]->print(F("UDP_TX_PACKET_MAX_SIZE = "));
   myDebug[debugPort]->println(UDP_TX_PACKET_MAX_SIZE);
 
+//  resetChips(); // reset oneWire Switches
+  pinMode(oneWireAddress, OUTPUT);
+  digitalWrite(oneWireAddress, LOW);
+  
   for(x = LED1; x <= LED5; x++)
   {
     pinMode(x,OUTPUT);       // test LEDs on TeensyNet > V12.0
+    setLED(x, ledON);
+    delay(2000);
     setLED(x, ledOFF);
   }
+  pinMode(oneWireAddress, INPUT);
 
   pinMode(CHPD , INPUT_PULLUP);
   pinMode(GPIO2 , INPUT_PULLUP);
@@ -154,11 +161,11 @@ void setup()
   digitalWrite(ESPRST, HIGH);
   delay(1000);
 
-  Serial.println("Reseting ESP8266");
+  myDebug[debugPort]->println("Reseting ESP8266");
 
   resetESP8266();    
 
-  Serial.println("Starting Wire");
+  myDebug[debugPort]->println("Starting Wire");
 
   Wire.begin();  // enable the 1st I2C port
 #if __MK20DX256__ 
@@ -180,7 +187,7 @@ void setup()
     resetESP8266();
   }
   if(read_till_eol(1000)) Serial.println(buffer);
-  Serial.println("begin.");  
+  myDebug[debugPort]->println("begin.");  
   if(read_till_eol(1000)) Serial.println(buffer);
   setupWiFi();
   
