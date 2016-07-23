@@ -78,6 +78,7 @@ void readParameters(void)
   I2CEEPROM_readAnything(eeGwStr, gwStr, I2C0x50);        // get Static Gateway Address string
   I2CEEPROM_readAnything(eeSnStr, snStr, I2C0x50);        // get Static Subnet string
   I2CEEPROM_readAnything(eeUpStr, upStr, I2C0x50);        // get UDP Port string
+  I2CEEPROM_readAnything(eeDhcpStr, dhcpStr, I2C0x50);    // get UDP Port string
   I2CEEPROM_readAnything(eeEipStr, eipStr, I2C0x50);      // get Ethernet IP Address string
   I2CEEPROM_readAnything(eeEipStr, i2cIPResult, I2C0x50);
   myDebug[debugPort]->println("Finished");
@@ -92,6 +93,7 @@ void saveParameters(void)
   I2CEEPROM_writeAnything(eeGwStr, gwStr, I2C0x50);           // set Static Gateway Address string
   I2CEEPROM_writeAnything(eeSnStr, snStr, I2C0x50);           // set Static Subnet string
   I2CEEPROM_writeAnything(eeUpStr, upStr, I2C0x50);           // set UDP Port string
+  I2CEEPROM_writeAnything(eeDhcpStr, dhcpStr, I2C0x50);       // set use DHCP string
   I2CEEPROM_writeAnything(eeEipStr, eipStr, I2C0x50);         // set Ethernet IP Address string
   I2CEEPROM_writeAnything(I2CEEPROMipAddr, eipStr, I2C0x50);  // set Ethernet IP Address string
   myDebug[debugPort]->println("Finished");
@@ -149,20 +151,26 @@ void showSetup(void)
   myDebug[debugPort]->print("pass = ");
   myDebug[debugPort]->print(passStr);
   myDebug[debugPort]->println(";");
-  myDebug[debugPort]->print("WiFi ip = ");
-  myDebug[debugPort]->print(ipStr);
+  myDebug[debugPort]->print("dhcp = ");
+  myDebug[debugPort]->print(dhcpStr);
   myDebug[debugPort]->println(";");
-  myDebug[debugPort]->print("gw = ");
-  myDebug[debugPort]->print(gwStr);
-  myDebug[debugPort]->println(";");
-  myDebug[debugPort]->print("sn = ");
-  myDebug[debugPort]->print(snStr);
-  myDebug[debugPort]->println(";");
-  myDebug[debugPort]->print("up = ");
+  if( (dhcpStr[0] == 'n') || (dhcpStr[0] == 'N') )
+  {
+    myDebug[debugPort]->print("Ethernet ip = ");
+    myDebug[debugPort]->println(eipStr);
+    myDebug[debugPort]->print("WiFi ip = ");
+    myDebug[debugPort]->print(ipStr);
+    myDebug[debugPort]->println(";");
+    myDebug[debugPort]->print("gw = ");
+    myDebug[debugPort]->print(gwStr);
+    myDebug[debugPort]->println(";");
+    myDebug[debugPort]->print("sn = ");
+    myDebug[debugPort]->print(snStr);
+    myDebug[debugPort]->println(";");
+  }
+  myDebug[debugPort]->print("udp = ");
   myDebug[debugPort]->print(upStr);
   myDebug[debugPort]->println(";");
-  myDebug[debugPort]->print("Ethernet ip = ");
-  myDebug[debugPort]->println(eipStr);
 }
 
 void setupWiFi(void)
@@ -186,32 +194,35 @@ void setupWiFi(void)
   delay(100);
   while(Serial1.available()) Serial1.read();
 
-  // send staticIP
-  myDebug[debugPort]->print("Sending staticIP:");
-  Serial1.print("i");
-  Serial1.println(ipStr);
+  if(dhcpStr[0] == 'N' || dhcpStr[0] == 'n')
+  {
+    // send staticIP
+    myDebug[debugPort]->print("Sending staticIP:");
+    Serial1.print("i");
+    Serial1.println(ipStr);
 
-  read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
-  delay(100);
-  while(Serial1.available()) Serial1.read();
+    read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
+    delay(100);
+    while(Serial1.available()) Serial1.read();
 
-  // send gateway address
-  myDebug[debugPort]->print("Sending gateway:");
-  Serial1.print("g");
-  Serial1.println(gwStr);
+    // send gateway address
+    myDebug[debugPort]->print("Sending gateway:");
+    Serial1.print("g");
+    Serial1.println(gwStr);
 
-  read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
-  delay(100);
-  while(Serial1.available()) Serial1.read();
+    read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
+    delay(100);
+    while(Serial1.available()) Serial1.read();
 
-  // send subnet address
-  myDebug[debugPort]->print("Sending subnet:");
-  Serial1.print("n");
-  Serial1.println(snStr);
+    // send subnet address
+    myDebug[debugPort]->print("Sending subnet:");
+    Serial1.print("n");
+    Serial1.println(snStr);
 
-  read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
-  delay(100);
-  while(Serial1.available()) Serial1.read();
+    read_till_eol(4000) ? myDebug[debugPort]->println(buffer) : myDebug[debugPort]->println("FAILED");
+    delay(100);
+    while(Serial1.available()) Serial1.read();
+  }
 
   // send udpPort
   myDebug[debugPort]->print("Sending udpPort:");
@@ -230,9 +241,7 @@ void setupWiFi(void)
     Serial1.println("c");
     if(read_till_eol(10000))
     {
-      myDebug[debugPort]->println();
-      myDebug[debugPort]->println("Sending begin loop()");
-      Serial1.println("b");
+      myDebug[debugPort]->println(buffer);
       retry = false;
     }else{
       myDebug[debugPort]->println("FAILED");
@@ -241,6 +250,24 @@ void setupWiFi(void)
     delay(100);
     while(Serial1.available()) Serial1.read();
   }while(retry == true);
+
+  char *pch = strtok(buffer, ";");
+  strcpy(wifiBJ, pch);
+  myDebug[debugPort]->print("wifiBJ = ");
+  myDebug[debugPort]->println(wifiBJ);
+  pch = strtok(NULL, ";");
+  strcpy(wifiPort, pch);
+  myDebug[debugPort]->print("wifiPort = ");
+  myDebug[debugPort]->println(wifiPort);
+  pch = strtok(NULL, ";");
+  strcpy(wifiStr, pch);
+  myDebug[debugPort]->print("wifiStr = ");
+  myDebug[debugPort]->println(wifiStr);
+
+  delay(100);
+  while(Serial1.available()) Serial1.read();
+  myDebug[debugPort]->println("Sending begin loop()");
+  Serial1.println("b");
 }
 
 void clearParameters(void)
@@ -394,115 +421,142 @@ void setParameters(void)
 
   esp8266z = 0;
   
-  myDebug[debugPort]->print("Enter WiFi Static IP:");
+  myDebug[debugPort]->print("Use DHCP:");
   while(1)
   {
     while(myDebug[debugPort]->available())
     {
-      ipStr[esp8266z] = myDebug[debugPort]->read();
-      if( (ipStr[esp8266z] == 0x0A) || (ipStr[esp8266z] == 0x0D) || (ipStr[esp8266z] == 0x00) )
+      dhcpStr[esp8266z] = myDebug[debugPort]->read();
+      if( (dhcpStr[esp8266z] == 0x0A) || (dhcpStr[esp8266z] == 0x0D) || (dhcpStr[esp8266z] == 0x00) )
       {
-        ipStr[esp8266z] = 0x00;
+        dhcpStr[esp8266z] = 0x00;
         break;
       }
       esp8266z++;
-      if(esp8266z >= ipCnt)
+      if(esp8266z >= spCnt)
       {
-        ipStr[esp8266z] = 0x00;
+        dhcpStr[esp8266z] = 0x00;
         break;
-      } 
+      }
     }
-    if(ipStr[esp8266z] == 0x00)
+    if(dhcpStr[esp8266z] == 0x00)
       break;
   }
-  myDebug[debugPort]->println(ipStr); 
+  myDebug[debugPort]->println(dhcpStr);
+  
+  esp8266z = 0;
+  
+  if(dhcpStr[0] == 'N' || dhcpStr[0] == 'n')
+  {
+    myDebug[debugPort]->print("Enter WiFi Static IP:");
+    while(1)
+    {
+      while(myDebug[debugPort]->available())
+      {
+        ipStr[esp8266z] = myDebug[debugPort]->read();
+        if( (ipStr[esp8266z] == 0x0A) || (ipStr[esp8266z] == 0x0D) || (ipStr[esp8266z] == 0x00) )
+        {
+          ipStr[esp8266z] = 0x00;
+          break;
+        }
+        esp8266z++;
+        if(esp8266z >= ipCnt)
+        {
+          ipStr[esp8266z] = 0x00;
+          break;
+        } 
+      }
+      if(ipStr[esp8266z] == 0x00)
+        break;
+    }
+    myDebug[debugPort]->println(ipStr); 
 
-  esp8266z = 0;
-  
-  myDebug[debugPort]->print("Enter Wired Static IP:");
-  while(1)
-  {
-    while(myDebug[debugPort]->available())
-    {
-      eipStr[esp8266z] = myDebug[debugPort]->read();
-      if( (eipStr[esp8266z] == 0x0A) || (eipStr[esp8266z] == 0x0D) || (eipStr[esp8266z] == 0x00) )
-      {
-        eipStr[esp8266z] = 0x00;
-        break;
-      }
-      esp8266z++;
-      if(esp8266z >= ipCnt)
-      {
-        eipStr[esp8266z] = 0x00;
-        break;
-      } 
-    }
-    if(eipStr[esp8266z] == 0x00)
-      break;
-  }
-  ip = strToAddr(eipStr);
-  for(uint y = 0; y < 4; y++) i2cIPResult[y] = ip[y];
-  myDebug[debugPort]->println(ip); 
-  esp8266z = 0;
-  
-  while(myDebug[debugPort]->available())
-    myDebug[debugPort]->read(); // flush the buffer
+    esp8266z = 0;
     
-  myDebug[debugPort]->print("Enter Static Gateway:");
-  while(1)
-  {
-    while(myDebug[debugPort]->available())
+    myDebug[debugPort]->print("Enter Wired Static IP:");
+    while(1)
     {
-      gwStr[esp8266z] = myDebug[debugPort]->read();
-      if( (gwStr[esp8266z] == 0x0A) || (gwStr[esp8266z] == 0x0D) || (gwStr[esp8266z] == 0x00) )
+      while(myDebug[debugPort]->available())
       {
-        gwStr[esp8266z] = 0x00;
-        break;
+        eipStr[esp8266z] = myDebug[debugPort]->read();
+        if( (eipStr[esp8266z] == 0x0A) || (eipStr[esp8266z] == 0x0D) || (eipStr[esp8266z] == 0x00) )
+        {
+          eipStr[esp8266z] = 0x00;
+          break;
+        }
+        esp8266z++;
+        if(esp8266z >= ipCnt)
+        {
+          eipStr[esp8266z] = 0x00;
+          break;
+        } 
       }
-      esp8266z++;
-      if(esp8266z >= ipCnt)
-      {
-        myDebug[debugPort]->println("String Too Long");
-        gwStr[esp8266z] = 0x00;
+      if(eipStr[esp8266z] == 0x00)
         break;
-      } 
     }
-    if(gwStr[esp8266z] == 0x00)
-    {
-      break;
-    }
-  }
-  myDebug[debugPort]->println(gwStr); 
-
-  esp8266z = 0;
-  
-  while(myDebug[debugPort]->available())
-    myDebug[debugPort]->read(); // flush the buffer
+    ip = strToAddr(eipStr);
+    for(uint y = 0; y < 4; y++) i2cIPResult[y] = ip[y];
+    myDebug[debugPort]->println(ip); 
+    esp8266z = 0;
     
-  myDebug[debugPort]->print("Enter Static subnet:");
-  while(1)
-  {
     while(myDebug[debugPort]->available())
+      myDebug[debugPort]->read(); // flush the buffer
+      
+    myDebug[debugPort]->print("Enter Static Gateway:");
+    while(1)
     {
-      snStr[esp8266z] = myDebug[debugPort]->read();
-      if( (snStr[esp8266z] == 0x0A) || (snStr[esp8266z] == 0x0D) || (snStr[esp8266z] == 0x00) )
+      while(myDebug[debugPort]->available())
       {
-        snStr[esp8266z] = 0x00;
+        gwStr[esp8266z] = myDebug[debugPort]->read();
+        if( (gwStr[esp8266z] == 0x0A) || (gwStr[esp8266z] == 0x0D) || (gwStr[esp8266z] == 0x00) )
+        {
+          gwStr[esp8266z] = 0x00;
+          break;
+        }
+        esp8266z++;
+        if(esp8266z >= ipCnt)
+        {
+          myDebug[debugPort]->println("String Too Long");
+          gwStr[esp8266z] = 0x00;
+          break;
+        } 
+      }
+      if(gwStr[esp8266z] == 0x00)
+      {
         break;
       }
-      esp8266z++;
-      if(esp8266z >= ipCnt)
-      {
-        snStr[esp8266z] = 0x00;
-        break;
-      } 
     }
-    if(snStr[esp8266z] == 0x00)
-      break;
-  }
-  myDebug[debugPort]->println(snStr); 
+    myDebug[debugPort]->println(gwStr); 
 
-        
+    esp8266z = 0;
+    
+    while(myDebug[debugPort]->available())
+      myDebug[debugPort]->read(); // flush the buffer
+      
+    myDebug[debugPort]->print("Enter Static subnet:");
+    while(1)
+    {
+      while(myDebug[debugPort]->available())
+      {
+        snStr[esp8266z] = myDebug[debugPort]->read();
+        if( (snStr[esp8266z] == 0x0A) || (snStr[esp8266z] == 0x0D) || (snStr[esp8266z] == 0x00) )
+        {
+          snStr[esp8266z] = 0x00;
+          break;
+        }
+        esp8266z++;
+        if(esp8266z >= ipCnt)
+        {
+          snStr[esp8266z] = 0x00;
+          break;
+        } 
+      }
+      if(snStr[esp8266z] == 0x00)
+        break;
+    }
+    myDebug[debugPort]->println(snStr); 
+  }
+
   while(myDebug[debugPort]->available())
     myDebug[debugPort]->read(); // flush the buffer
 

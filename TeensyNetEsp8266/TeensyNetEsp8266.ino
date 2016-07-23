@@ -50,7 +50,7 @@ with:
 *********************/
 
 #define USEVGAONLY 1 // if set to 1, use VGA Values ONLY, otherwise use VGA or RGB
-#define USESERIAL2 0 // if set to 1, use Serial2 with FTDI for debugging otherwise use the Arduino IDE Serial Monitor
+#define USESERIAL2 1 // if set to 1, use Serial2 with FTDI for debugging otherwise use the Arduino IDE Serial Monitor
 
 #include <TeensyEsp8266VersionInfo.h>
 #include <PID_v1.h>
@@ -125,15 +125,21 @@ void setup()
   
   Serial.begin(baudRate);   // Teensy USB Serial Port  
   delay(500);
+  Serial.println("Serial Ready");
 
-  Serial1.begin(esp8266baudRate);  // Teensy Hardware Serial port 1 to ESP8266   (pins 0 and 1)
+//  Serial1.begin(esp8266baudRate);  // Teensy Hardware Serial port 1 to ESP8266   (pins 0 and 1)
+  Serial1.begin(baudRate);  // Teensy Hardware Serial port 1 to ESP8266   (pins 0 and 1)
   delay(500);
+  Serial.println("Serial1 Ready");
 
 // the serial debug port can be chosen with the USESERIAL2 #define
   Serial2.begin(baudRate); // start the optional FTDI serial port for debug
   delay(500);
+  Serial.println("Serial2 Ready");
 
   Serial.println("Serial Debug starting");
+  Serial.print("debugPort = ");
+  Serial.println(debugPort);
   myDebug[debugPort]->print(F("Serial Debug starting at "));
   myDebug[debugPort]->print(baudRate);
   myDebug[debugPort]->println(F(" baud"));
@@ -177,11 +183,15 @@ void setup()
   readParameters();
   if(ssidStr[0] == 0xFF ||
      passStr[0] == 0xFF ||
+     upStr[0]   == 0xFF
+/*
      ipStr[0]   == 0xFF ||
      gwStr[0]   == 0xFF ||
      snStr[0]   == 0xFF ||
      upStr[0]   == 0xFF ||
-     eipStr[0]  == 0xFF)
+     eipStr[0]  == 0xFF
+*/
+     )
   {
     setParameters();
     resetESP8266();
@@ -361,16 +371,28 @@ void setup()
   delay(1000);
 
 //  IPAddress i2cIPAddr(i2cIPResult[0],i2cIPResult[1],i2cIPResult[2],i2cIPResult[3]);
-  ip = strToAddr(eipStr);
-  Ethernet.begin((uint8_t *) &mac, ip); // use this for IP address from I2CEEPROM
-  Udp.begin(localPort);
-  myDebug[debugPort]->println(F("Ethernet,begin() from I2CEEPROM success"));
-  myDebug[debugPort]->print(F("My IP address: "));
-  myDebug[debugPort]->println(Ethernet.localIP());
+  if( (dhcpStr[0] == 'n') || (dhcpStr[0] == 'n') )
+  {
+    ip = strToAddr(eipStr);
+    Ethernet.begin((uint8_t *) &mac, ip); // use this for IP address from I2CEEPROM
+    myDebug[debugPort]->println(F("Ethernet,begin() from I2CEEPROM success"));
+  }else{
+    Ethernet.begin((uint8_t *) &mac); // use this for IP adddress from DHCP
+    myDebug[debugPort]->println(F("Ethernet,begin() from DHCP success"));
+  }
+  myDebug[debugPort]->print(F("Etherenet IP address: "));
+  myDebug[debugPort]->print(Ethernet.localIP());
+  myDebug[debugPort]->print(":");
+  if(Udp.begin(localPort))
+  {
+    myDebug[debugPort]->println(localPort);
+  }else{
+    myDebug[debugPort]->println("XXXXX");
+  }
 
   if(!(bonjourNameBuf[0] >= 0x20 && bonjourNameBuf[0] <= 0x7a))
   {
-    sprintf(bonjourNameBuf, "TeensyESP8266-%d", Ethernet.localIP()[3]);
+    sprintf(bonjourNameBuf, "TeensyESP%d", Ethernet.localIP()[3]);
   }
 
 // start Bonjour service
@@ -402,7 +424,7 @@ void setup()
     lcd[x]->print(Ethernet.localIP());
     lcd[x]->setCursor(0, 3);
     lcd[x]->print(F("WiFi:"));
-    lcd[x]->print(ipStr);
+    lcd[x]->print(wifiStr);
 
     lcd1[x]->clear();
     lcd1[x]->home();
@@ -415,7 +437,7 @@ void setup()
     lcd1[x]->print(Ethernet.localIP());
     lcd1[x]->setCursor(0, 3);
     lcd1[x]->print(F("WiFi:"));
-    lcd1[x]->print(ipStr);
+    lcd1[x]->print(wifiStr);
 
   }
 

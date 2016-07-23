@@ -8,10 +8,12 @@ This allows the TeensyESP8266 board to setup the WiFi and Wired connections via
 the TeensyESP8266 debug port (selectable as Serial or Serial2),
 which in turn initializes the ESP-01 board.
 
-Version 0.0.1
-Last Modified 04/03/2016
+Version 0.0.3
+Last Modified 07/22/2016
 By Jim Mayhugh
 
+V-0.0.3 - Added DHCP address acquisition and response
+V-0.0.2 - Added mDNS-SD discovery services
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -40,13 +42,16 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #include <ESP8266WiFi.h>
-#include <DNSServer.h>
+//#include <DNSServer.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <Ticker.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#define FALSE 0
+#define TRUE !FALSE
 
 const uint16_t udpDebug       = 0x0001;
 const uint16_t mdnsDebug      = 0x0002;
@@ -69,7 +74,7 @@ char passwd[WiFiStrCnt] = "";      // your network password
 char udpBuffer[packetBufCnt];      // buffer for udp
 char teensyBuffer[packetBufCnt];   // buffer tennsy
 
-char *versionID = "Version 0.0.1 ESP01SerialConnect";
+const char *versionID = "Version 0.0.3 ESP01SerialConnect";
 
 uint16_t udpPort = 0xFFFF;         // local port to listen for UDP packets
 
@@ -87,6 +92,19 @@ IPAddress wifiIP(255,255,255,255);
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP Udp;
 
+// mDNS stuff
+// multicast DNS responder
+MDNSResponder mdns;
+uint16_t mdnsUpdateDelay = 10;
+uint8_t  instanceCnt = 32;
+bool  mdnsUpdateStatus = FALSE;    
+const char* proto = "udp";
+const uint8_t  domainCnt = 32;
+const char* mDNSdomain = "esp";
+char hostName[domainCnt];
+
+
+Ticker  mdnsServer;
 Ticker  dBug;
 
 // WiFiManager wifiManager;
@@ -107,6 +125,47 @@ void setSN(void);
 void setUDP(void);
 void connectWiFi(void);
 void processUDP(void);
+void setupMDNS(void);
+void startMDNSupdate(void);
+void mdnsStatus(void);
+
+void startMDNSupdate(void)
+{
+  if(setDebug & mdnsDebug)
+    Serial.println("Enter startMDNSupdate");
+  mdns.update();
+  mdnsServer.attach(mdnsUpdateDelay, mdnsStatus);
+  mdnsUpdateStatus = FALSE;
+  if(setDebug & mdnsDebug)
+    Serial.println("Exit startMDNSupdate");
+}
+
+void mdnsStatus(void)
+{
+  if(setDebug & mdnsDebug)
+    Serial.println("Enter mdnsStatus");
+  mdnsServer.detach();
+  mdnsUpdateStatus = TRUE;
+  if(setDebug & mdnsDebug)
+    Serial.println("Exit mdnsStatus");
+}
+
+void setupMDNS(void)
+{
+  sprintf((char *) &hostName, "%s%d", "ESP", WiFi.localIP()[3]);
+  if (!mdns.begin((char *) &hostName, WiFi.localIP()))
+  {
+    Serial.println("Error");
+    while(1)
+    { 
+      delay(1000);
+    }
+  }else{
+    Serial.print((char *) &hostName);
+  }
+  startMDNSupdate();
+  mdns.addService(mDNSdomain, proto, udpPort); // Announce esp udp service on udpPort
+}
 
 void flushBuffer(void)
 {
@@ -226,6 +285,16 @@ void setUDP(void)
   z = 0;
 }
 
+void beginUDP(void)
+{
+  if(Udp.begin(udpPort))
+  {
+    Serial.print(udpPort);
+  }else{
+    Serial.print("0xFFFF");
+  }
+}
+
 void connectWiFi(void)
 {
   
@@ -247,20 +316,17 @@ void connectWiFi(void)
   }
   if(setDebug & ipDebug) Serial.println();
 
-  WiFi.config(staticIP, staticGateway, staticSubnet, staticDNS);
-
-  wifiIP = WiFi.localIP();
-  
-  if(Udp.begin(udpPort))
+  if( (staticIP[0] != 255) && (staticGateway[0] != 255) )
   {
-    Serial.print(WiFi.localIP());
-    Serial.print(":");
-    Serial.println(udpPort);
-  }else{
-    Serial.print(WiFi.localIP());
-    Serial.print(":");
-    Serial.println("0xFFF");
+    WiFi.config(staticIP, staticGateway, staticSubnet, staticDNS);
   }
+
+  setupMDNS();
+  Serial.print(";");
+  beginUDP();
+  Serial.print(";");
+  wifiIP = WiFi.localIP();
+  Serial.println(WiFi.localIP());
   flushBuffer();
 }
 
@@ -342,8 +408,8 @@ void processUDP(void)
 void setup(void)
 {
 
-  Serial.begin(921600);
-//  Serial.begin(115200);
+//  Serial.begin(921600);
+  Serial.begin(115200);
   delay(1000);
   
   ESP.wdtDisable(); // disable the watchdog Timer
@@ -398,48 +464,63 @@ void setup(void)
         beginLoop = true;
         break;
       }
+
       case 'C': // connect WiFi - returns wifi ip address
       case 'c':
       {
         connectWiFi();
         break;
       }
+
       case 'G': // set gateway - returns gateway address
       case 'g':
       {
         setGW();
         break;
       }
+
       case 'I': // set static IP - returns static IP Address
       case 'i':
       {
         setIP();
         break;
       }
-      case 'N': //set subnet address - returns subnet address 
+
+      case 'M': // setup MDNS - return MDNS String or "error"
+      case 'm':
+      {
+        setupMDNS();
+        break;
+      }
+
+      case 'N': // set subnet address - returns subnet address 
       case 'n':
       {
         setSN();
         break;
       }
+
       case 'P': // sets wifi password - returns password
       case 'p':
       {
         setPW();
         break;
       }
+
       case 'S': // set SSID - returns SSID
       case 's':
       {
         setSSID();
         break;
       }
-      case 'U': // set UDP port - returns UDP port and starts UDP
+
+      case 'U': // set UDP port - returns UDP port
       case 'u':
       {
         setUDP();
         break;
       }
+
       case 'V': // send version Information
       case 'v':
       {
@@ -447,6 +528,14 @@ void setup(void)
         flushBuffer();
         break;
       }
+
+      case 'W': // begin UDP - returns UDP port
+      case 'w':
+      {
+        beginUDP();
+        break;
+      }
+
       default:
       {
         for(uint16_t x = 0; x < serStrCnt; x++) serBuf[x] = ' ';
@@ -472,6 +561,9 @@ void loop(void)
   }
   delay(100);
   yield();
+  
+  if ( mdnsUpdateStatus == TRUE )
+    startMDNSupdate();
 }
 
 

@@ -37,7 +37,7 @@ const uint32_t esp8266Debug    = (lcd1wLED        << 1); // 0x10000000; // 26842
 
 const long baudRate = 115200;
 Stream *myDebug[] = { &Serial, &Serial2 };
-uint8_t debugPort = 1;
+uint8_t debugPort = 0;
 
 uint32_t setDebug = 0x00000000;
 //uint32_t setDebug = (esp8266Debug | udpDebug);

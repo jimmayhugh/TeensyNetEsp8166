@@ -2015,7 +2015,7 @@ void udpProcess(void)
       rBuffCnt += sprintf(ReplyBuffer+rBuffCnt, "%c", '.');
       rBuffCnt += sprintf(ReplyBuffer+rBuffCnt, "%d", Ethernet.localIP()[3]);
       rBuffCnt += sprintf(ReplyBuffer+rBuffCnt, "%s",", ESP8266 IP Address = ");
-      rBuffCnt += sprintf(ReplyBuffer+rBuffCnt, "%s", ipStr);
+      rBuffCnt += sprintf(ReplyBuffer+rBuffCnt, "%s", wifiStr);
       sendUDPpacket();
       break;
     }
