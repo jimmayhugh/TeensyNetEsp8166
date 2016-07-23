@@ -2,8 +2,8 @@
 
 TeensyNetEsp8266.ino
 
-Version 0.0.2
-Last Modified 04/20/2016
+Version 0.0.3
+Last Modified 07/23/2016
 By Jim Mayhugh
 
 Permission is hereby granted, free of charge, to any person obtaining
